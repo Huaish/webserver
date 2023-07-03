@@ -8,10 +8,10 @@
     <meta charset="utf-8" />
     
     <!-- CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.17/dist/css/uikit.min.css" />
-
+    
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.17/dist/css/uikit.min.css" />
     <link rel="stylesheet" href="./css/style.css"></link>
     <link rel="stylesheet" href="./css/animate.css"></link>
     <link type="image/png" sizes="96x96" rel="icon" href="./images/icons8-favicon-96.png">
@@ -28,25 +28,24 @@
     <script>
         new WOW().init();
     </script>
-    
-		<script>
+    <script>
 
-			$(function() {
-  				$('a[href*=#]:not([href=#])').click(function() {
-    				if (location.pathname.replace(/^\//,'') == this.pathname.replace(/^\//,'') && location.hostname == this.hostname) {
-      					var target = $(this.hash);
-      					target = target.length ? target : $('[name=' + this.hash.slice(1) +']');
-      					if (target.length) {
-        					$('html,body').animate({
-          						scrollTop: target.offset().top
-        					}, 1000);
-        				return false;
-      					}
-    				}
-  				});
-			});
-		
-		</script>
+        $(function() {
+            $('a[href*=#]:not([href=#])').click(function() {
+                if (location.pathname.replace(/^\//,'') == this.pathname.replace(/^\//,'') && location.hostname == this.hostname) {
+                    var target = $(this.hash);
+                    target = target.length ? target : $('[name=' + this.hash.slice(1) +']');
+                    if (target.length) {
+                        $('html,body').animate({
+                            scrollTop: target.offset().top
+                        }, 1000);
+                    return false;
+                    }
+                }
+            });
+        });
+    
+    </script>
 </head>
 
 <body>
@@ -107,7 +106,7 @@
     <section id="content">
         <div class="container">
             <h2>Upload File</h2>
-            <div class="js-upload uk-placeholder uk-text-center">
+            <div class="file-upload uk-placeholder uk-text-center">
                 <span uk-icon="icon: cloud-upload"></span>
                 <span class="uk-text-middle">Upload file by dropping them here or</span>
                 <div uk-form-custom>
@@ -120,38 +119,51 @@
         </div>
     </section>
 
+    <hr class="uk-divider-icon">
+
     <!-- List all files -->
     <section id="content">
         <div class="container">
             <h2>File List</h2>
+            <p uk-margin>
+                <div  class="file-update" uk-form-custom>
+                    <input type="file">
+                    <button class="uk-button uk-button-default tool-tip-bottom" type="button" tabindex="-1">Update</button>
+                </div>
+            </p>
             <div class="uk-overflow-auto">
                 <table class="uk-table uk-table-middle uk-table-responsive uk-table-divider">
                     <thead>
                         <tr>
+                            <th class="uk-table-shrink"></th>
                             <th class="uk-width-small">File Name</th>
                             <th>Download link</th>
-                            <th>Length</th>
                             <th></th>
                         </tr>
                     </thead>
-                    <tbody id="file-list">
-                        <tr>
-                            <td>file name</td>
-                            <td><a href="download/test.txt'">http://localhost:8080/test.txt</a></td>
-                            <td class="uk-width-small">4</td>
-                            <td class="uk-width-small">
-                                <div class="js-upload-put" uk-form-custom>
-                                    <input type="file">
-                                    <button class="uk-button uk-button-default" type="button" tabindex="-1">Select</button>
-                                </div>
-                            </td>
-                            <td class="uk-width-small"><button class="uk-button uk-button-danger">Delete</button></td>
-                        </tr>
-                    </tbody>
+                    <tbody id="file-list"></tbody>
                 </table>
             </div>
         </div>
     </section>
+
+    <!-- Info -->
+    <div id="info-modal" class="uk-flex-top" uk-modal>
+        <div class="uk-modal-dialog uk-modal-body uk-margin-auto-vertical">
+
+            <button class="uk-modal-close-default" type="button" uk-close></button>
+            <h2 class="uk-modal-title">File Info</h2>
+            <!-- File Name -->
+            <h4>File Name: <span class="file-name">test.txt</span></h4>
+            <hr class="uk-divider-icon">
+            <!-- Content Type -->
+            <h4>Content Type: <span class="content-type">text</span></h4>
+            <hr class="uk-divider-icon">
+            <!-- File Size -->
+            <h4>Content length: <span class="content-length">4 bytes</span></h4>
+
+        </div>
+    </div>
 	
 	<div id="copyright-part">
 		<p>&copy 2023 <span>Simple Web Server</span> All Rights Reserved</p>

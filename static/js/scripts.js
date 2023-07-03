@@ -14,7 +14,8 @@ function myFunction() {
 }
 
 var bar = document.getElementById('progressbar');
-UIkit.upload('.js-upload', {
+
+UIkit.upload('.file-upload', {
     url: 'upload',
     multiple: false,
     method: 'POST',
@@ -64,13 +65,24 @@ UIkit.upload('.js-upload', {
 
 });
 
-UIkit.upload('.js-upload-put', {
+UIkit.upload('.file-update', {
     url: 'upload',
     multiple: false,
     method: 'PUT',
     name: 'file',
+    beforeSend: function (environment) {
+        let update_list = []
+        let files = document.querySelectorAll('[type="checkbox"]:checked');
+        for ( let i = 0; i < files.length; i++ ) {
+            let filename = files[i].parentElement.parentElement.querySelector('[name="filename"]').value;
+            update_list.push(filename);
+        }
+
+        // add to form data 
+        environment.data.append('update_list', update_list);
+    },
+    
     complete: async function (res) {
-        console.log('complete', JSON.parse(res.response));
         res = JSON.parse(res.response);
         if ( res.ok ) {
             await updateFileList();
@@ -81,7 +93,8 @@ UIkit.upload('.js-upload-put', {
         } else {
             setTimeout(function () {
                 bar.setAttribute('hidden', 'hidden');
-                UIkit.notification({message: 'Update Failed: ' + res.error, status: 'danger'})
+                let failed_list = res.fail.join(', ');
+                UIkit.notification({message: res.error + ': (' + failed_list + ')', status: 'danger'})
             }, 1000);
         }
 
@@ -123,10 +136,10 @@ async function updateFileList() {
     let html = '';
     for ( const [key, value] of Object.entries(response.data) ) {
         html += '<tr>';
+        html += '<td><input class="uk-checkbox" type="checkbox"><input name="filename" type="hidden" value="' + key + '"></td>';
         html += '<td>' + key + '</td>';
         html += '<td><a href="download/' + key + '">' + value.url + '</a></td>';
-        html += '<td class="uk-width-small">' + value.size + '</td>';
-        html += '<td class="uk-width-small"><button class="uk-button uk-button-default"><div uk-form-custom><input type="file"><span>UPDATE</span></div></button></td>';
+        html += '<td class="uk-width-small"><button class="uk-button uk-button-default" onclick="getInfo(\'' + key + '\')">INFO</button></td>';
         html += '<td class="uk-width-small"><button class="uk-button uk-button-danger" onclick="deleteFile(\'' + key + '\')">Delete</button></td>';
         html += '</tr>';
     }
@@ -146,9 +159,6 @@ async function deleteFile(file) {
     }
 }
 
-async function updateFile(file) {
-}
-
 async function checkAuth() {
     // check auth using head method
     let response = await fetch('auth', {
@@ -165,5 +175,30 @@ async function checkAuth() {
     }
 }
 
+async function getInfo(file) {
+    // get file info using head method
+    let response = await fetch(file, {
+        method: 'HEAD'
+    });
+    if ( response.ok ) {
+        // parse response header
+        let info = {
+            file_name: file,
+            content_type: response.headers.get('content-type'),
+            content_length: response.headers.get('content-length')
+        }
+        let modal = document.getElementById('info-modal');
+        let modal_body = modal.querySelector('.uk-modal-body');
+        let file_name = modal.querySelector('.file-name');
+        let content_type = modal_body.querySelector('.content-type');
+        let content_length = modal_body.querySelector('.content-length');
+        file_name.innerHTML = info.file_name;
+        content_type.innerHTML = info.content_type;
+        content_length.innerHTML = info.content_length + ' bytes';
+
+        UIkit.modal(modal).show();
+    }
+}
+
 checkAuth();
-// updateFileList();
+updateFileList();

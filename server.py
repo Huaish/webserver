@@ -98,32 +98,40 @@ def parse_body(body, content_type):
     if content_type.startswith('multipart/form-data'):
         boundary = content_type.split('; ')[1].split('=')[1]
         # parse form data
-        raw_form_data = body.strip()
-        para_regex = rf'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="(?P<filename>.*)"\r\nContent-Type: (?P<content_type>.*)\r\n\r\n(?P<content>.*)\r\n'
-        match = re.search(para_regex, raw_form_data, re.DOTALL)
-        while match:
-            data['name'] = match.group('filename')
-            data['content'] = match.group('content')
-            data['content_type'] = match.group('content_type')
-            raw_form_data = raw_form_data[len(match.group(0)):]
-            match = re.search(para_regex, raw_form_data, re.DOTALL)
+        raw_form_data = body.strip().split(f'--{boundary}')[1:-1]
+        file_regex = rf'\r\nContent-Disposition: form-data; name="file"; filename="(?P<filename>.*)"\r\nContent-Type: (?P<content_type>.*)\r\n\r\n(?P<content>.*)\r\n'
+        para_regex = rf'\r\nContent-Disposition: form-data; name="(?P<name>.*)"\r\n\r\n(?P<value>.*)\r\n'
+
+        for raw_data in raw_form_data:
+            if re.match(file_regex, raw_data):
+                filename = re.match(file_regex, raw_data).group('filename')
+                content_type = re.match(file_regex, raw_data).group('content_type')
+                content = re.match(file_regex, raw_data).group('content')
+                data['name'] = filename
+                data['content'] = content
+                data['content_type'] = content_type
+            elif re.match(para_regex, raw_data):
+                name = re.match(para_regex, raw_data).group('name')
+                value = re.match(para_regex, raw_data).group('value')
+                data[name] = value
     else:
         filename = str(uuid.uuid4())
         data['name'] = filename
         data['content'] = body
         data['content_type'] = content_type
 
+    data['update_list'] = [] if 'update_list' not in data else data['update_list'].split(',')
+
     if 'name' not in data or 'content' not in data:
         raise ValueError
+    if 'content_type' not in data:
+        data['content_type'] = 'text/plain'
+    
     return data
 
 def handle_request(request):
     try:
         method, path, headers, body = parse_request(request)
-        print(colored(f"method: {method}", "green"))
-        print(colored(f"path: {path}", "blue"))
-        print(colored(f"headers: {headers}", "yellow"))
-        print(colored(f"body: {body}", "white"))
         # Authorization
         if method not in ['GET', 'HEAD'] or path.startswith('/download'):
             if 'Cookie' not in headers or not Cookie(cookie_str=headers['Cookie']).isValid(TOKEN):
@@ -209,35 +217,29 @@ def handle_request(request):
                     'ok': True,
                     'name': data['name'],
                     'size': len(data['content']),
-                    'path': f'/file/{data["name"]}'
                 }
                 return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
         
         elif method == 'PUT':
             # 更新檔案
             data = parse_body(body, headers['Content-Type'])
-            # check file exist
-            if not os.path.exists(os.path.join(UPLOAD_FOLDER, data['name'])):
-                res = {
-                    'ok': False,
-                    'name': data['name'],
-                    'size': len(data['content']),
-                    'path': f'/file/{data["name"]}',
-                    'error': 'File not exists'
-                }
-                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
-            else:
-                path = os.path.join(UPLOAD_FOLDER, data['name'])
-                with open(path, 'w') as upload_file:
-                    upload_file.write(data['content'])
-                
-                res = {
-                    'ok': True,
-                    'name': data['name'],
-                    'size': len(data['content']),
-                    'path': f'/file/{data["name"]}'
-                }
-                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
+            update_file, fail_file = [], []
+            for filename in data['update_list']:
+                # check file exist
+                if not os.path.exists(os.path.join(UPLOAD_FOLDER, filename)):
+                    fail_file.append(filename)
+                else:
+                    path = os.path.join(UPLOAD_FOLDER, filename)
+                    with open(path, 'w') as upload_file:
+                        upload_file.write(data['content'])
+                    update_file.append(filename)
+            res = {
+                'ok': True if len(fail_file) == 0 else False,
+                'update': update_file,
+                'fail': fail_file,
+                'error': 'File not exists' if len(fail_file) != 0 else None
+            }
+            return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
         
         elif method == 'DELETE':
             # 刪除檔案

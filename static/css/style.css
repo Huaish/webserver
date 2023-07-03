@@ -725,3 +725,14 @@ header {
 #progressbar::-webkit-progress-value {
 	background-color: #909090;
 }
+
+input[type=file]:focus, input[type=checkbox]:focus, input[type=radio]:focus {
+    outline: unset;
+    outline-offset: unset;
+}
+
+.tool-tip-bottom {
+	background-color: transparent;
+	color: #000000;
+	border-color: #000000;
+}
