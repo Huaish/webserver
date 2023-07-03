@@ -162,6 +162,7 @@ Please note that this program uses only the `socket` package in Python and does 
         - The server will respond with a JSON object containing file information, such as content type, size.
 
 ## Status Codes
+
 The server responds with the following status codes:
 
 - `200 OK`: The request was successful.
