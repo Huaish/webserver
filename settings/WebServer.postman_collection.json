@@ -12,13 +12,10 @@
 				"method": "HEAD",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8080/auth",
+					"raw": "http://localhost:8080/auth",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -29,18 +26,15 @@
 			"response": []
 		},
 		{
-			"name": "head",
+			"name": "getInfo",
 			"request": {
 				"method": "HEAD",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8080/test.txt",
+					"raw": "http://localhost:8080/test.txt",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -63,13 +57,10 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "http://127.0.0.1:8080/token",
+					"raw": "http://localhost:8080/token",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -142,13 +133,10 @@
 					}
 				],
 				"url": {
-					"raw": "http://127.0.0.1:8080/",
+					"raw": "http://localhost:8080/",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -164,13 +152,10 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8080/download/test.txt",
+					"raw": "http://localhost:8080/download/test.txt",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -182,18 +167,15 @@
 			"response": []
 		},
 		{
-			"name": "file-list",
+			"name": "fileList",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8080/file-list",
+					"raw": "http://localhost:8080/file-list",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -219,18 +201,15 @@
 						{
 							"key": "file",
 							"type": "file",
-							"src": []
+							"src": "test.txt"
 						}
 					]
 				},
 				"url": {
-					"raw": "http://127.0.0.1:8080/",
+					"raw": "http://localhost:8080/",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -261,13 +240,10 @@
 					]
 				},
 				"url": {
-					"raw": "http://127.0.0.1:8080/",
+					"raw": "http://localhost:8080/",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
@@ -283,17 +259,14 @@
 				"method": "DELETE",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8080/test4.txt",
+					"raw": "http://localhost:8080/test.txt",
 					"protocol": "http",
 					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+						"localhost"
 					],
 					"port": "8080",
 					"path": [
-						"test4.txt"
+						"test.txt"
 					]
 				}
 			},
