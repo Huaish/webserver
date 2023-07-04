@@ -1,3 +1,4 @@
+
 import json
 import socket
 import os
@@ -6,10 +7,8 @@ import time
 import hashlib
 import re
 import uuid
+from omegaconf import OmegaConf
 
-STATIC_FOLDER = './static'
-UPLOAD_FOLDER = './upload'
-TOKEN = hashlib.sha256('token'.encode('utf-8')).hexdigest()
 CONTENT_TYPE = {
     'txt': 'text/plain',
     'bin': 'application/octet-stream',
@@ -19,17 +18,18 @@ CONTENT_TYPE = {
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
     'png': 'image/png',
-    'pdf': 'application/pdf'
+    'pdf': 'application/pdf',
+    'ico': 'image/x-icon'
 }
 
 class Cookie:
-    def __init__(self, sid=None, expires=None, path=None, cookie_str=None):
+    def __init__(self, token=None, expires=None, path=None, cookie_str=None):
         self.cookie = {}
         if cookie_str:
             self.cookie = self.parse_cookie(cookie_str)
         else:
-            if sid:
-                self.cookie['sid'] = sid
+            if token:
+                self.cookie['token'] = token
             if expires:
                 self.cookie['expires'] = expires
             if path:
@@ -54,11 +54,8 @@ class Cookie:
         for key, value in self.cookie.items():
             cookie_str += f'{key}={value}; '
         return cookie_str[:-2]
-    
-    def isValid(self, token):
-        return self.cookie['sid'] == TOKEN
 
-def create_response(status_code, headers, body=None):
+def create_response(status_code, headers=[], body=None):
     """建立回應訊息"""
     response = "HTTP/1.1 {}\r\n".format(status_code)
     for header in headers:
@@ -129,77 +126,104 @@ def parse_body(body, content_type):
     
     return data
 
-def handle_request(request):
+def auth(headers, config):
+    """驗證 token"""
+    if 'Cookie' in headers:
+        cookie = Cookie(cookie_str=headers['Cookie'])
+        return cookie['token'] == config.token
+    return False
+
+def handle_request(request, config):
     try:
         method, path, headers, body = parse_request(request)
+        if config.debug:
+            print(colored(f"method: {method}", "green"))
+            print(colored(f"path: {path}", "blue"))
+            print(colored(f"headers: {headers}", "yellow"))
+            print(colored(f"body: {body}", "white"))
+
         # Authorization
-        if method not in ['GET', 'HEAD'] or path.startswith('/download'):
-            if 'Cookie' not in headers or not Cookie(cookie_str=headers['Cookie']).isValid(TOKEN):
+        if method not in ['GET', 'HEAD'] and not auth(headers, config):
                 raise PermissionError
         
         if method == 'GET':
-            if path == '/' or path == '/index.html':
-                path = "/html/index.html"
-            
+            if path == '/':
+                # redirect to index.html status code 301
+                return create_response(301, [('Location', '/index.html')]), 301
             if path == '/token':
                 # redirect to index.html status code 301
-                c = Cookie(sid=TOKEN, expires=time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(time.time() + 3600)), path='/')
-                return create_response(301, [('Location', '/'), ('Set-Cookie', str(c)), ('Content-Type', 'text/html'), ('Cookie', str(c))])
+                c = Cookie(token=config.token, expires=time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(time.time() + 3600)), path='/')
+                return create_response(301, [('Location', '/'), ('Set-Cookie', str(c)), ('Content-Type', 'text/html'), ('Cookie', str(c))]), 301
             
             elif path.startswith('/download'):
-                filename = path.split('/')[-1]
-                with open(os.path.join(UPLOAD_FOLDER, filename), 'rb') as download_file:
-                    file_data = download_file.read()
-                headers = [(f"Content-Disposition", "attachment; filename={}".format(filename)), ('Content-Type', 'application/octet-stream'), ('Content-Length', os.path.getsize(os.path.join(UPLOAD_FOLDER, filename)))]
-                return create_response(200, headers, file_data)
+                if auth(headers, config):
+                    path = path.replace('/download/', f'{config.upload_folder}/')
+                    filename = path.split('/')[-1]
+                    with open(path, 'rb') as download_file:
+                        file_data = download_file.read()
+                    headers = [(f"Content-Disposition", "attachment; filename={}".format(filename)), ('Content-Type', 'application/octet-stream'), ('Content-Length', os.path.getsize(os.path.join(config.upload_folder, filename)))]
+                    return create_response(200, headers, file_data), 200
+                else:
+                    raise PermissionError
             
             elif path == '/file-list':
                 data = {}
-                if 'Cookie' in headers and Cookie(cookie_str=headers['Cookie']).isValid(TOKEN):
+                if auth(headers, config):
                     # 回傳檔案列表
-                    file_list = os.listdir(UPLOAD_FOLDER)
+                    file_list = os.listdir(config.upload_folder)
                     for filename in file_list:
                         data[filename] = {}
-                        data[filename]['url'] = f'http://localhost:8080/download/{filename}'
-                        data[filename]['size'] = os.path.getsize(os.path.join(UPLOAD_FOLDER, filename))
+                        data[filename]['url'] = f'http://{config.host}:{config.port}/download/{filename}'
+                        data[filename]['size'] = os.path.getsize(os.path.join(config.upload_folder, filename))
                 body = {
                     'total': len(data),
                     'ok': True,
                     'data': data,
                 }
-                return create_response(200, [('Content-Type', 'application/json')], json.dumps(body))
+                return create_response(200, [('Content-Type', 'application/json')], json.dumps(body)), 200
             
             else:
-                with open(os.path.join(STATIC_FOLDER, path[1:]), 'rb') as static_file:
+                path = path[1:]
+                type = path.split('.')[-1]
+                if type in CONTENT_TYPE:
+                    headers = [('Content-Type', CONTENT_TYPE[type])]
+
+                if type in ['html', 'js', 'css']:
+                    path = os.path.join(type, path)
+                elif type in ['jpg', 'jpeg', 'png', 'gif', 'ico']:
+                    path = os.path.join('images', path)
+                elif not auth(headers, config):
+                    raise PermissionError
+                else:
+                    path = os.path.join('upload', path)
+
+                with open(os.path.join(config.static_folder, path), 'rb') as static_file:
                     file_data = static_file.read()
-                headers = [('Content-Type', CONTENT_TYPE[path.split('.')[-1]])]
-                return create_response(200, headers, file_data)
+
+                return create_response(200, headers, file_data), 200
         
         elif method == 'HEAD':
-            auth = 'Cookie' in headers and Cookie(cookie_str=headers['Cookie']).isValid(TOKEN)
             if path == '/auth':
                 # check auth
-                if auth:
-                    return create_response(200, [])
-                else:
-                    return create_response(403, [])
+                return (create_response(200, []), 200) if auth(headers, config) else (create_response(403, []), 403)
+
             else:
                 # 回傳檔案資訊
-                if not auth:
-                    return create_response(403, [])
+                if not auth(headers, config):
+                    return create_response(403, []), 403
                 
                 filename = path.split('/')[-1]
-                if os.path.exists(os.path.join(UPLOAD_FOLDER, filename)):
-                    headers = [('Content-Length', os.path.getsize(os.path.join(UPLOAD_FOLDER, filename))), ('Content-Type', CONTENT_TYPE[filename.split('.')[-1]])]
-                    return create_response(200, headers, '')
+                if os.path.exists(os.path.join(config.upload_folder, filename)):
+                    headers = [('Content-Length', os.path.getsize(os.path.join(config.upload_folder, filename))), ('Content-Type', CONTENT_TYPE[filename.split('.')[-1]])]
+                    return create_response(200, headers, ''), 200
                 else:
-                    return create_response(404, [])
+                    return create_response(404, []), 404
             
         elif method == 'POST':
             # 上傳檔案
             data = parse_body(body, headers['Content-Type'])
             # check file exist
-            if os.path.exists(os.path.join(UPLOAD_FOLDER, data['name'])):
+            if os.path.exists(os.path.join(config.upload_folder, data['name'])):
                 res = {
                     'ok': False,
                     'name': data['name'],
@@ -207,9 +231,9 @@ def handle_request(request):
                     'path': f'/file/{data["name"]}',
                     'error': 'File exists'
                 }
-                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
+                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res)), 200
             else:
-                path = os.path.join(UPLOAD_FOLDER, data['name'])
+                path = os.path.join(config.upload_folder, data['name'])
                 with open(path, 'w') as upload_file:
                     upload_file.write(data['content'])
                 
@@ -218,7 +242,7 @@ def handle_request(request):
                     'name': data['name'],
                     'size': len(data['content']),
                 }
-                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
+                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res)), 200
         
         elif method == 'PUT':
             # 更新檔案
@@ -226,10 +250,10 @@ def handle_request(request):
             update_file, fail_file = [], []
             for filename in data['update_list']:
                 # check file exist
-                if not os.path.exists(os.path.join(UPLOAD_FOLDER, filename)):
+                if not os.path.exists(os.path.join(config.upload_folder, filename)):
                     fail_file.append(filename)
                 else:
-                    path = os.path.join(UPLOAD_FOLDER, filename)
+                    path = os.path.join(config.upload_folder, filename)
                     with open(path, 'w') as upload_file:
                         upload_file.write(data['content'])
                     update_file.append(filename)
@@ -239,51 +263,49 @@ def handle_request(request):
                 'fail': fail_file,
                 'error': 'File not exists' if len(fail_file) != 0 else None
             }
-            return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
+            return create_response(200, [('Content-Type', 'application/json')], json.dumps(res)), 200
         
         elif method == 'DELETE':
             # 刪除檔案
             filename = path.split('/')[-1]
-            if os.path.exists(os.path.join(UPLOAD_FOLDER, filename)):
-                os.remove(os.path.join(UPLOAD_FOLDER, filename))
+            if os.path.exists(os.path.join(config.upload_folder, filename)):
+                os.remove(os.path.join(config.upload_folder, filename))
                 res = {
                     'ok': True,
                     'name': filename,
                 }
-                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
+                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res)), 200
             else:
                 res = {
                     'ok': False,
                     'name': filename,
                     'error': 'File not exists'
                 }
-                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res))
+                return create_response(200, [('Content-Type', 'application/json')], json.dumps(res)), 200
 
         else:
-            return create_response(505, [('Content-Type', 'text/html')])
+            return create_response(505, []), 505
     except ValueError:
-        return create_response(400, [('Content-Type', 'text/html')])
+        return create_response(400, []), 400
     except KeyError:
-        return create_response(400, [('Content-Type', 'text/html')])
+        return create_response(400, []), 400
     except PermissionError as e:
-        with open(os.path.join(STATIC_FOLDER, 'html/403.html'), 'rb') as static_file:
+        with open(os.path.join(config.static_folder, 'html/403.html'), 'rb') as static_file:
             file_data = static_file.read()
-        return create_response(403, [('Content-Type', 'text/html')], file_data)
+        return create_response(403, [('Content-Type', 'text/html')], file_data), 403
     except FileNotFoundError as e:
-        with open(os.path.join(STATIC_FOLDER, 'html/404.html'), 'rb') as static_file:
+        with open(os.path.join(config.static_folder, 'html/404.html'), 'rb') as static_file:
             file_data = static_file.read()
-        return create_response(404, [('Content-Type', 'text/html')], file_data)
+        return create_response(404, [('Content-Type', 'text/html')], file_data), 404
     except Exception as e:
         print(colored(e, 'red'))
-        return create_response(500, [('Content-Type', 'text/html')])    
+        return create_response(500, [('Content-Type', 'text/html')]), 500
 
-def run_server():
-    host = 'localhost'
-    port = 8080
+def run_server(config):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((host, port))
+    server.bind((config.host, config.port))
     server.listen(10)
-    print(f'Running on http://{host}:{port}')
+    print(f'Running on http://{config.host}:{config.port}')
     print('Press Ctrl + C to quit')
 
     try:
@@ -291,13 +313,16 @@ def run_server():
             client, addr = server.accept()
             try:
                 request = client.recv(1024).decode('utf-8')            
-                _, _, headers, body = parse_request(request)
+                method, path, headers, body = parse_request(request)
                 if 'Content-Length' in headers:
                     content_length = int(headers['Content-Length'])
                     while len(body) < content_length:
                         request = request + client.recv(1024).decode()
                         _, _, headers, body = parse_request(request)
-                response = handle_request(request)
+                response, status_code = handle_request(request, config)
+                print(f'{addr[0]} - - [{time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(time.time()))}]', end=' ')
+                print(colored(f' "{method} {path} HTTP/1.1"', 'cyan'), end=' ')
+                print(colored(f' {status_code} -', 'white'))
             except UnicodeDecodeError:
                 pass
             client.send(response)
@@ -309,4 +334,8 @@ def run_server():
         
 
 if __name__ == '__main__':
-    run_server()
+    args_cli = OmegaConf.from_cli()
+    config = OmegaConf.load("./settings/config.yml")
+    config = OmegaConf.merge(config, args_cli)
+    config.token = hashlib.sha256(config.token.encode()).hexdigest()
+    run_server(config)
