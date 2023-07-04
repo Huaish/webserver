@@ -18,7 +18,7 @@ Please note that this program uses only the `socket` package in Python and does 
 3. Prepare Conda environment
 
     ```=bash
-    conda create -n webserver python=3.10.7
+    conda create -n webserver python=3.10.7 -f settings/environment.yml
     conda activate webserver
     ```
 
@@ -183,24 +183,41 @@ In this project, we also provide a Postman collection for testing the server. Yo
 
 ## Customization
 
-You can customize the server according to your requirements. Here are a few aspects you might consider modifying:
+You can customize the server by modifying the [config.yml](config.yml) file.
+Here are a few aspects you might consider modifying:
 
 - **File Storage Locations**:
   - The `STATIC_FOLDER` variable determines the folder where static files (e.g., HTML, CSS, JavaScript) are stored. You can change this to point to your desired folder.
   - The `UPLOAD_FOLDER` variable determines the folder where uploaded files will be stored. Modify this to specify your desired upload location.
 
 - **Authentication**:
-  - The server includes a simple authentication mechanism using a token. The `TOKEN` variable stores the secret token used for authentication. Change this to a secure value for your application.
+  - The server includes a simple authentication mechanism using a token. The `TOKEN` variable stores the secret token used for authentication. You can change this to your desired token.
 
-- **Additional Functionality**:
-  - If you want to add more functionality or extend the server's capabilities, you can modify the code accordingly. The existing code provides a foundation for file upload, download, listing, updating, and deletion. You can build upon this foundation to suit your needs.
+- **Host and Port**:
+  - The `HOST` variable determines the host address where the server will be running. You can change this to your desired host address.
+  - The `PORT` variable determines the port number where the server will be running. You can change this to your desired port number.
 
 ## Troubleshooting
 
 If you encounter any issues or errors while running the server, please keep the following points in mind:
 
 - Ensure that you have the necessary permissions to read/write files in the specified `STATIC_FOLDER` and `UPLOAD_FOLDER`.
-- Check if any required Python modules are missing. If so, you can install them using the `pip` package manager or the `conda` package manager.
-- Make sure that the specified host and port are not already in use by another application on your system.
+- Check if any required Python modules are missing. If so, you can install them using the `pip` package manager.
+- Make sure that the specified host and port are not already in use by another application on your system. If so, you can change the host and port in the [config.yml](config.yml) file.
+
+  Or you can stop the other application and restart the server by below command:
+  Mac/Linux:
+
+  ```=bash
+  lsof -i tcp:8080
+  kill -9 <PID>
+  ```
+
+  Windows:
+
+  ```=bash
+  netstat -ano | findstr :8080
+  taskkill /PID <PID> /F
+  ```
 
 If you have any questions or need further assistance, please let us know.
