@@ -353,7 +353,7 @@ class HTTPServer:
             return HTTPServer.create_response(400, []), 400
         elif isinstance(e, HTTPVersionNotSupportedError):
             return HTTPServer.create_response(505, []), 505
-        elif isinstance(e, NotImplementedError):
+        elif isinstance(e, NotImplementError):
             return HTTPServer.create_response(501, []), 501
         else:
             return HTTPServer.create_response(500, []), 500
@@ -385,6 +385,9 @@ class HTTPServer:
                     client.send(response)
                 except UnicodeDecodeError:
                     pass
+                except Exception as e:
+                    response, status_code = self.handle_exception(e)
+                    client.send(response)
                 client.close()
 
         except KeyboardInterrupt:
